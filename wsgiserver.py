@@ -454,7 +454,7 @@ class ChunkedRFile(object):
                 data += self.buffer[:remaining]
                 self.buffer = self.buffer[remaining:]
             else:
-                data += self.buffer
+                data += self.buffer ; self.buffer = EMPTY # jno
 
     def readline(self, size=None):
         data = EMPTY
@@ -480,7 +480,7 @@ class ChunkedRFile(object):
                     self.buffer = self.buffer[remaining:]
             else:
                 if newline_pos == -1:
-                    data += self.buffer
+                    data += self.buffer ; self.buffer = EMPTY # jno
                 else:
                     data += self.buffer[:newline_pos]
                     self.buffer = self.buffer[newline_pos:]
@@ -1554,13 +1554,33 @@ class WorkerThread(threading.Thread):
             'Write Throughput': lambda s: s['Bytes Written'](s) / (
                 s['Work Time'](s) or 1e-6),
         }
+        self._stop = threading.Event() # jno
         threading.Thread.__init__(self)
+        self.setDaemon(True) # jno
+
+    def stop(self): self._stop.set() # jno
+    def stopped(self): return self._stop.isSet() # jno
+    def _conn_close(self): # jno
+        if self.conn:
+            self.conn.close()
+            if self.server.stats['Enabled']:
+                self.requests_seen += self.conn.requests_seen
+                self.bytes_read += self.conn.rfile.bytes_read
+                self.bytes_written += self.conn.wfile.bytes_written
+                self.work_time += time.time() - self.start_time
+                self.start_time = None
+            self.conn = None
+    def __enter__(self): return self # jno
+    def __exit__(self, type, value, tb): # jno
+        if not self.stopped(): # jno
+            self.stop() # jno
+        self._conn_close() # jno
 
     def run(self):
         self.server.stats['Worker Threads'][self.getName()] = self.stats
         try:
             self.ready = True
-            while True:
+            while not self.stopped(): # jno
                 conn = self.server.requests.get()
                 if conn is _SHUTDOWNREQUEST:
                     return
@@ -1571,14 +1591,7 @@ class WorkerThread(threading.Thread):
                 try:
                     conn.communicate()
                 finally:
-                    conn.close()
-                    if self.server.stats['Enabled']:
-                        self.requests_seen += self.conn.requests_seen
-                        self.bytes_read += self.conn.rfile.bytes_read
-                        self.bytes_written += self.conn.wfile.bytes_written
-                        self.work_time += time.time() - self.start_time
-                        self.start_time = None
-                    self.conn = None
+                    self._conn_close() # jno
         except (KeyboardInterrupt, SystemExit):
             exc = sys.exc_info()[1]
             self.server.interrupt = exc
@@ -1679,6 +1692,7 @@ class ThreadPool(object):
             worker = self._threads.pop()
             if worker is not current and worker.isAlive():
                 try:
+                    worker.stop() # jno
                     if timeout is None or timeout < 0:
                         worker.join()
                     else:
@@ -2315,6 +2329,11 @@ class WSGIServer(HTTPServer):
     def _set_numthreads(self, value):
         self.requests.min = value
     numthreads = property(_get_numthreads, _set_numthreads)
+
+    def __enter__(self): return self # jno
+    def __exit__(self, type, value, tb): # jno
+        if self.ready: # jno
+            self.stop() # jno
 
 
 class WSGIGateway(Gateway):
