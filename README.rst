@@ -9,17 +9,12 @@ WSGIserver is developed by Florent Gallaire fgallaire@gmail.com.
 
 Website: http://fgallaire.github.io/wsgiserver.
 
-.. image:: https://img.shields.io/github/issues/Yadro-Intra/ssdp.svg
+.. image:: https://img.shields.io/github/issues/Yadro-Intra/wsgiserver.svg
    :alt: GitHub issues
-
-.. image:: https://img.shields.io/github/forks/Yadro-Intra/ssdp.svg
+.. image:: https://img.shields.io/github/forks/Yadro-Intra/wsgiserver.svg
    :alt: GitHub forks
-
-.. image:: https://img.shields.io/github/stars/Yadro-Intra/ssdp.svg
+.. image:: https://img.shields.io/github/stars/Yadro-Intra/wsgiserver.svg
    :alt: GitHub stars
-
-.. image:: https://img.shields.io/badge/license-Apache%202-blue.svg
-   :alt: GitHub license
 
 Download and Install
 --------------------
